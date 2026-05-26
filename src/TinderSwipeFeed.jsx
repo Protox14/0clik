@@ -21,8 +21,9 @@ const StarIcon = () => (
 
 /* ─────────────── Tinder Card ─────────────── */
 const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight, onSwipeLeft, onShowDetails, liked, onToggleLike, displayLikes }, ref) => {
-  const dragState = useRef({ active: false, startX: 0, startY: 0, currentX: 0 });
+  const dragState = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
   const [dragX, setDragX] = useState(0);
+  const [dragY, setDragY] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [flyOut, setFlyOut] = useState(null);
   const [heartPop, setHeartPop] = useState(false);
@@ -41,29 +42,61 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
       setDragX(120);
       setFlyOut("right");
       setTimeout(() => onSwipeRight(product), 380);
+    },
+    swipeUp: () => {
+      if (flyOut) return;
+      setFeedback("super");
+      setDragY(-120);
+      setFlyOut("up");
+      setTimeout(() => {
+        onShowDetails(product);
+        setFlyOut(null);
+        setDragX(0);
+        setDragY(0);
+        setFeedback(null);
+      }, 350);
     }
   }));
 
   const handleStart = useCallback((clientX, clientY) => {
-    dragState.current = { active: true, startX: clientX, startY: clientY, currentX: clientX };
+    dragState.current = { active: true, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY };
   }, []);
 
-  const handleMove = useCallback((clientX) => {
+  const handleMove = useCallback((clientX, clientY) => {
     if (!dragState.current.active) return;
     dragState.current.currentX = clientX;
+    dragState.current.currentY = clientY;
     const dx = clientX - dragState.current.startX;
+    const dy = clientY - dragState.current.startY;
     setDragX(dx);
-    if (dx > 50) setFeedback("like");
-    else if (dx < -50) setFeedback("nope");
-    else setFeedback(null);
+    setDragY(dy);
+
+    if (Math.abs(dy) > Math.abs(dx)) {
+      if (dy < -55) setFeedback("super");
+      else setFeedback(null);
+    } else {
+      if (dx > 55) setFeedback("like");
+      else if (dx < -55) setFeedback("nope");
+      else setFeedback(null);
+    }
   }, []);
 
   const handleEnd = useCallback(() => {
     if (!dragState.current.active) return;
     dragState.current.active = false;
     const dx = dragState.current.currentX - dragState.current.startX;
+    const dy = dragState.current.currentY - dragState.current.startY;
     setFeedback(null);
-    if (dx > 110) {
+
+    if (Math.abs(dy) > Math.abs(dx) && dy < -100) {
+      setFlyOut("up");
+      setTimeout(() => {
+        onShowDetails(product);
+        setFlyOut(null);
+        setDragX(0);
+        setDragY(0);
+      }, 350);
+    } else if (dx > 110) {
       setFlyOut("right");
       setTimeout(() => onSwipeRight(product), 380);
     } else if (dx < -110) {
@@ -71,14 +104,15 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
       setTimeout(() => onSwipeLeft(), 380);
     } else {
       setDragX(0);
+      setDragY(0);
     }
-  }, [product, onSwipeRight, onSwipeLeft]);
+  }, [product, onSwipeRight, onSwipeLeft, onShowDetails]);
 
   const onTouchStart = (e) => handleStart(e.touches[0].clientX, e.touches[0].clientY);
-  const onTouchMove = (e) => { e.preventDefault(); handleMove(e.touches[0].clientX); };
+  const onTouchMove = (e) => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); };
   const onTouchEnd = () => handleEnd();
   const onMouseDown = (e) => { e.preventDefault(); handleStart(e.clientX, e.clientY); };
-  const onMouseMove = (e) => { if (e.buttons === 1) handleMove(e.clientX); };
+  const onMouseMove = (e) => { if (e.buttons === 1) handleMove(e.clientX, e.clientY); };
   const onMouseUp = () => handleEnd();
 
   /* Double-tap like */
@@ -99,13 +133,23 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
 
   if (flyOut === "right") { cardTransform = "translateX(120vw) rotate(20deg)"; cardOpacity = 0; }
   else if (flyOut === "left") { cardTransform = "translateX(-120vw) rotate(-20deg)"; cardOpacity = 0; }
-  else if (dragX !== 0) {
-    const rotate = dragX * 0.07;
-    cardTransform = `translateX(${dragX}px) rotate(${rotate}deg)`;
-    cardTransition = dragState.current.active ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
+  else if (flyOut === "up") { cardTransform = "translateY(-120vh)"; cardOpacity = 0; }
+  else if (dragX !== 0 || dragY !== 0) {
+    if (Math.abs(dragY) > Math.abs(dragX)) {
+      cardTransform = `translateY(${Math.min(dragY, 0)}px)`;
+      cardTransition = dragState.current.active ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
+    } else {
+      const rotate = dragX * 0.07;
+      cardTransform = `translateX(${dragX}px) rotate(${rotate}deg)`;
+      cardTransition = dragState.current.active ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
+    }
   }
 
-  const feedbackOpacity = feedback ? Math.min(Math.abs(dragX) / 140, 1) : 0;
+  const feedbackOpacity = feedback
+    ? (feedback === "super"
+      ? Math.min(Math.abs(dragY) / 140, 1)
+      : Math.min(Math.abs(dragX) / 140, 1))
+    : 0;
 
   // Discount calculation
   const getDiscount = () => {
@@ -161,6 +205,11 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
           NOPE
         </div>
       )}
+      {feedback === "super" && (
+        <div className="tc-stamp tc-stamp-super" style={{ opacity: feedbackOpacity, transform: `translateX(-50%) rotate(-10deg) scale(${0.8 + feedbackOpacity * 0.2})` }}>
+          DETAILS
+        </div>
+      )}
 
       {/* Heart pop */}
       {heartPop && (
@@ -182,17 +231,6 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
         {/* Name + Price */}
         <div className="tc-name-row">
           <h2 className="tc-name">{product.name}</h2>
-          {/* Up-arrow details button */}
-          <button
-            className="tc-details-arrow"
-            onClick={(e) => { e.stopPropagation(); onShowDetails(product); }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="18 15 12 9 6 15" />
-            </svg>
-          </button>
         </div>
 
         {/* Seller line with icon */}
@@ -646,6 +684,10 @@ export default function TinderSwipeFeed() {
           right: 24px;
           color: #ef4444; border-color: #ef4444;
         }
+        .tc-stamp-super {
+          left: 50%;
+          color: #3b82f6; border-color: #3b82f6;
+        }
 
         /* ── Heart pop ── */
         .tc-heart-pop {
@@ -908,7 +950,13 @@ export default function TinderSwipeFeed() {
               </svg>
             </button>
             {/* Star / Details */}
-            <button className="tc-action sm star" onClick={() => setDetailsProduct(currentProduct)}>
+            <button className="tc-action sm star" onClick={() => {
+              if (cardRef.current) {
+                cardRef.current.swipeUp();
+              } else {
+                setDetailsProduct(currentProduct);
+              }
+            }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
