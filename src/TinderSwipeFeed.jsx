@@ -113,7 +113,7 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
       const oldVal = parseFloat(product.oldPrice.replace(/[^\d.]/g, ''));
       const newVal = parseFloat(product.price.replace(/[^\d.]/g, ''));
       if (oldVal && newVal && oldVal > newVal) return Math.round(((oldVal - newVal) / oldVal) * 100);
-    } catch (e) {}
+    } catch (e) { }
     return 0;
   };
   const discount = getDiscount();
@@ -288,7 +288,7 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
       const oldVal = parseFloat(product.oldPrice.replace(/[^\d.]/g, ''));
       const newVal = parseFloat(product.price.replace(/[^\d.]/g, ''));
       if (oldVal && newVal && oldVal > newVal) return Math.round(((oldVal - newVal) / oldVal) * 100);
-    } catch (e) {}
+    } catch (e) { }
     return 23;
   };
   const discount = getDiscount();
@@ -507,12 +507,12 @@ export default function TinderSwipeFeed() {
       navigator.share({ title: product.name, text: product.desc, url: shareUrl }).then(() => {
         setProductsList((prev) => prev.map((p) => p.id === product.id ? { ...p, sharesNum: p.sharesNum + 1 } : p));
         showToast("✨ Shared successfully!");
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
       navigator.clipboard.writeText(shareUrl).then(() => {
         setProductsList((prev) => prev.map((p) => p.id === product.id ? { ...p, sharesNum: p.sharesNum + 1 } : p));
         showToast("🔗 Link copied!");
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, []);
 
@@ -602,9 +602,9 @@ export default function TinderSwipeFeed() {
         }
         .tc-card-product-img {
           position: absolute;
-          top: 50%; left: 50%;
-          transform: translate(-50%, -55%);
-          max-width: 75%; max-height: 55%;
+          top: 37%; left: 50%;
+          transform: translate(-50%, -38%);
+          max-width: 100%; max-height: 80%;
           object-fit: contain;
           filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
           z-index: 1;
