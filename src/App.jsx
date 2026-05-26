@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ProductSwipeFeed from "./ProductSwipeFeed";
+import TinderSwipeFeed from "./TinderSwipeFeed";
 
 // Custom Link component for SPA routing without page reloads
 export function Link({ to, children, style, className }) {
@@ -130,6 +131,55 @@ function NavigationDashboard() {
             <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#ffffff", marginBottom: "6px" }}>Reels E-Commerce</h2>
             <p style={{ fontSize: "12px", color: "#8a8f9d", lineHeight: "1.5" }}>
               Immersive full-screen vertical swipe reels feed with gesture-driven checkout controls.
+            </p>
+          </div>
+        </Link>
+
+        {/* Card 2: Tinder-style swipe */}
+        <Link to="/tinder" style={{ textDecoration: "none" }}>
+          <div style={{
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            borderRadius: "24px",
+            padding: "24px",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden"
+          }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-6px)";
+              e.currentTarget.style.border = "1px solid rgba(255, 255, 255, 0.15)";
+              e.currentTarget.style.boxShadow = "0 20px 40px rgba(0,0,0,0.3)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.border = "1px solid rgba(255, 255, 255, 0.06)";
+              e.currentTarget.style.boxShadow = "none";
+            }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "12px"
+            }}>
+              <span style={{
+                background: "linear-gradient(135deg, #a855f7 0%, #ec4899 100%)",
+                color: "#ffffff",
+                padding: "6px 14px",
+                borderRadius: "99px",
+                fontSize: "11px",
+                fontWeight: "800",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px"
+              }}>
+                Tinder Route
+              </span>
+              <span style={{ fontSize: "18px" }}>👉</span>
+            </div>
+            <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#ffffff", marginBottom: "6px" }}>Card Swipe Commerce</h2>
+            <p style={{ fontSize: "12px", color: "#8a8f9d", lineHeight: "1.5" }}>
+              Tinder-style card stack with left/right swipe to skip or add to cart.
             </p>
           </div>
         </Link>
@@ -291,10 +341,12 @@ function App() {
     if (currentPath === "/instagram") {
       return <ProductSwipeFeed />;
     }
+    if (currentPath === "/tinder") {
+      return <TinderSwipeFeed />;
+    }
     if (currentPath === "/blinkit") {
       return <BlinkitPlaceholder />;
     }
-    // Default dashboard selector
     return <NavigationDashboard />;
   };
 

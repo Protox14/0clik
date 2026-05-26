@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 /* ─────────────── Count Helpers ─────────────── */
-function parseCount(val) {
+export function parseCount(val) {
   if (typeof val === "number") return val;
   if (!val) return 0;
   const s = val.toString().toLowerCase().trim();
@@ -11,7 +11,7 @@ function parseCount(val) {
   return parseInt(s.replace(/[^0-9]/g, ""), 10) || 0;
 }
 
-function formatCount(num) {
+export function formatCount(num) {
   if (num >= 1000) {
     return (num / 1000).toFixed(1).replace(/\.0$/, "") + "k";
   }
@@ -19,7 +19,7 @@ function formatCount(num) {
 }
 
 /* ─────────────── Product Data ─────────────── */
-const PRODUCTS = [
+export const PRODUCTS = [
   {
     id: 1,
     name: "Fingers Droplets Wired Earphone with Mic",
@@ -137,7 +137,7 @@ const PRODUCTS = [
 ];
 
 /* ─────────────── Default Comments ─────────────── */
-const DEFAULT_COMMENTS = {
+export const DEFAULT_COMMENTS = {
   1: [
     { id: 1, user: "rohit_sharma", text: "Bass is super punchy! Worth every rupee 🔥", time: "2h ago" },
     { id: 2, user: "neha.verma", text: "Fits perfectly in ears, doesn't fall off during gym sessions.", time: "4h ago" },
@@ -212,12 +212,11 @@ function ActionBtn({ children, count, onClick, onTouchStart: ots, onMouseDown: o
   );
 }
 
-/* ─────────────── Product Slide ─────────────── */
+/* ─────────────── Product Slide (Instagram – vertical scroll only) ─────────────── */
 function ProductSlide({ 
   product, 
   isActive, 
   onAddToCart, 
-  onSwipeLeft, 
   onShowDetails, 
   liked, 
   onToggleLike,
@@ -227,64 +226,7 @@ function ProductSlide({
   displayComments,
   displayShares
 }) {
-  const dragState = useRef({ active: false, startX: 0, startY: 0, currentX: 0, isHorizontal: null });
-  const [dragX, setDragX] = useState(0);
-  const [feedback, setFeedback] = useState(null);
-  const [flyOut, setFlyOut] = useState(null);
   const [heartPop, setHeartPop] = useState(false);
-
-  useEffect(() => {
-    if (isActive) { setDragX(0); setFeedback(null); setFlyOut(null); }
-  }, [isActive]);
-
-  const handleStart = useCallback((clientX, clientY) => {
-    if (!isActive) return;
-    dragState.current = { active: true, startX: clientX, startY: clientY, currentX: clientX, isHorizontal: null };
-  }, [isActive]);
-
-  const handleMove = useCallback((clientX, clientY) => {
-    if (!dragState.current.active || !isActive) return;
-    if (dragState.current.isHorizontal === null) {
-      const dx = Math.abs(clientX - dragState.current.startX);
-      const dy = Math.abs(clientY - dragState.current.startY);
-      if (dx > 8 || dy > 8) {
-        dragState.current.isHorizontal = dx > dy;
-        if (!dragState.current.isHorizontal) { dragState.current.active = false; return; }
-      } else return;
-    }
-    if (!dragState.current.isHorizontal) return;
-    dragState.current.currentX = clientX;
-    const dx = clientX - dragState.current.startX;
-    setDragX(dx);
-    if (dx > 40) setFeedback("add");
-    else if (dx < -40) setFeedback("skip");
-    else setFeedback(null);
-  }, [isActive]);
-
-  const handleEnd = useCallback(() => {
-    if (!dragState.current.active || !isActive) return;
-    dragState.current.active = false;
-    if (!dragState.current.isHorizontal) { setDragX(0); setFeedback(null); return; }
-    const dx = dragState.current.currentX - dragState.current.startX;
-    setFeedback(null);
-    if (dx > 90) {
-      setFlyOut("right");
-      setTimeout(() => { onAddToCart(product, true); setFlyOut(null); setDragX(0); }, 420);
-    } else if (dx < -90) {
-      setFlyOut("left");
-      onSwipeLeft();
-      setTimeout(() => { setFlyOut(null); setDragX(0); }, 420);
-    } else {
-      setDragX(0);
-    }
-  }, [isActive, product, onAddToCart, onSwipeLeft]);
-
-  const onTouchStart = (e) => handleStart(e.touches[0].clientX, e.touches[0].clientY);
-  const onTouchMove = (e) => { handleMove(e.touches[0].clientX, e.touches[0].clientY); if (dragState.current.isHorizontal) e.preventDefault(); };
-  const onTouchEnd = () => handleEnd();
-  const onMouseDown = (e) => handleStart(e.clientX, e.clientY);
-  const onMouseMove = (e) => { if (e.buttons === 1) handleMove(e.clientX, e.clientY); };
-  const onMouseUp = () => handleEnd();
 
   /* Double-tap like */
   const lastTap = useRef(0);
@@ -298,38 +240,12 @@ function ProductSlide({
     lastTap.current = now;
   }, [liked, onToggleLike, product.id]);
 
-  let cardTransform = "";
-  let cardTransition = "transform 0.4s cubic-bezier(.25,.8,.25,1), opacity 0.35s";
-  let cardOpacity = 1;
-
-  if (flyOut === "right") { cardTransform = "translateX(110%) rotate(12deg)"; cardOpacity = 0; }
-  else if (flyOut === "left") { cardTransform = "translateX(-110%) rotate(-12deg)"; cardOpacity = 0; }
-  else if (dragX !== 0) {
-    const rotate = dragX * 0.03;
-    cardTransform = `translateX(${dragX}px) rotate(${rotate}deg)`;
-    cardTransition = dragState.current.active ? "none" : "transform 0.4s cubic-bezier(.25,.8,.25,1)";
-  }
-
-  const feedbackOpacity = feedback ? Math.min(Math.abs(dragX) / 120, 1) : 0;
-
   return (
-    <div
-      className="reel-slide"
-      style={{ transform: cardTransform, transition: cardTransition, opacity: cardOpacity }}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
-      onClick={handleDoubleTap}
-    >
+    <div className="reel-slide" onClick={handleDoubleTap}>
       {/* ── Dynamic Background ── */}
       <div className="reel-bg" style={{
         background: `linear-gradient(160deg, ${product.bgStart} 0%, ${product.bgEnd} 100%)`,
       }} />
-      {/* Ambient glow behind product */}
       <div className="reel-glow" style={{
         background: `radial-gradient(ellipse 70% 50% at 50% 42%, ${product.bgStart}aa 0%, transparent 70%)`,
       }} />
@@ -381,34 +297,7 @@ function ProductSlide({
         </ActionBtn>
       </div>
 
-      {/* ── Swipe Feedback Overlays ── */}
-      {feedback === "add" && (
-        <div className="reel-feedback" style={{ background: `rgba(34,197,94,${feedbackOpacity * 0.18})` }}>
-          <div className="reel-feedback-inner" style={{ opacity: feedbackOpacity, transform: `scale(${0.7 + feedbackOpacity * 0.3})` }}>
-            <div className="reel-feedback-icon" style={{ borderColor: "rgba(34,197,94,0.8)" }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-              </svg>
-            </div>
-            <span className="reel-feedback-label" style={{ color: "#22c55e" }}>CHECKOUT</span>
-          </div>
-        </div>
-      )}
-      {feedback === "skip" && (
-        <div className="reel-feedback" style={{ background: `rgba(239,68,68,${feedbackOpacity * 0.18})` }}>
-          <div className="reel-feedback-inner" style={{ opacity: feedbackOpacity, transform: `scale(${0.7 + feedbackOpacity * 0.3})` }}>
-            <div className="reel-feedback-icon" style={{ borderColor: "rgba(239,68,68,0.8)" }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </div>
-            <span className="reel-feedback-label" style={{ color: "#ef4444" }}>CANCEL</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Product Info Overlay (Bottom-Left, on gradient) ── */}
+      {/* ── Product Info Overlay ── */}
       <div className="reel-product-info">
         <div className="reel-seller-row">
           <span className="reel-seller">{product.seller}</span>
@@ -541,9 +430,21 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
       )}
       <div className="cart-sheet" style={{ transform: open ? "translateY(0)" : "translateY(100%)", paddingBottom: "32px", background: "#f8f9fa" }}>
         <div className="cart-handle" />
-        <button className="cart-close" onClick={onClose}>✕</button>
+        <button 
+          className="cart-close" 
+          onClick={onClose} 
+          style={{ 
+            top: "16px", 
+            right: "16px", 
+            zIndex: 10,
+            marginBottom: "16px"
+          }}
+          title="Close details"
+        >
+          ✕
+        </button>
 
-        {/* Hero image preview at the top */}
+        {/* Hero image preview at the top with margin spacing to clear close button */}
         <div style={{
           width: "100%",
           height: "160px",
@@ -553,6 +454,7 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
+          marginTop: "34px",
           marginBottom: "16px",
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)"
         }}>
@@ -1032,19 +934,7 @@ export default function ProductSwipeFeed() {
     setDetailsProduct(product);
   }, []);
 
-  const handleSwipeLeft = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const nextIndex = activeIndex + 1;
-    if (nextIndex < productsList.length) {
-      el.scrollTo({
-        top: nextIndex * el.clientHeight,
-        behavior: "smooth"
-      });
-    } else {
-      showToast("✨ You've reached the last product!");
-    }
-  }, [activeIndex, productsList]);
+
 
   const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.id !== id));
 
@@ -1236,7 +1126,7 @@ export default function ProductSwipeFeed() {
         }
         .reel-scroll::-webkit-scrollbar { display: none; }
 
-        /* ── Slide ── */
+        /* ── Slide (handles Instagram vertical scroll snap only) ── */
         .reel-slide {
           position: relative; width: 100%; flex-shrink: 0;
           height: 100vh; height: 100dvh;
@@ -1613,7 +1503,6 @@ export default function ProductSwipeFeed() {
               product={product}
               isActive={index === activeIndex}
               onAddToCart={addToCart}
-              onSwipeLeft={handleSwipeLeft}
               onShowDetails={showDetails}
               liked={likedProducts.has(product.id)}
               onToggleLike={toggleLike}
