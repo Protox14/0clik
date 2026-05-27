@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useRef, useCallback, useEffect } from "react";
 
 /* ─────────────── Count Helpers ─────────────── */
@@ -215,7 +216,6 @@ function ActionBtn({ children, count, onClick, onTouchStart: ots, onMouseDown: o
 /* ─────────────── Product Slide (Instagram – vertical scroll only) ─────────────── */
 function ProductSlide({ 
   product, 
-  isActive, 
   onAddToCart, 
   onShowDetails, 
   liked, 
@@ -404,10 +404,10 @@ function CartSheet({ cart, open, onClose, onRemove, onUpdateQty }) {
 
 /* ─────────────── Details Sheet ─────────────── */
 function DetailsSheet({ product, open, onClose, onBuy }) {
-  if (!product) return null;
-
   const [detailsExpanded, setDetailsExpanded] = useState(true);
   const [aboutExpanded, setAboutExpanded] = useState(false);
+
+  if (!product) return null;
 
   // Dynamically calculate discount percentage
   const getDiscount = () => {
@@ -417,7 +417,9 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
       if (oldVal && newVal && oldVal > newVal) {
         return Math.round(((oldVal - newVal) / oldVal) * 100);
       }
-    } catch (e) {}
+    } catch {
+      return 23;
+    }
     return 23; // fallback
   };
 
@@ -654,8 +656,9 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
 
 /* ─────────────── Comment Sheet ─────────────── */
 function CommentSheet({ open, onClose, product, comments = [], onAddComment, onToggleLikeComment }) {
-  if (!product) return null;
   const [newComment, setNewComment] = useState("");
+
+  if (!product) return null;
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();

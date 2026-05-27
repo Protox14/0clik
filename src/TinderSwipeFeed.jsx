@@ -1,12 +1,7 @@
-import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
-import { PRODUCTS, DEFAULT_COMMENTS, parseCount, formatCount } from "./ProductSwipeFeed";
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { PRODUCTS, DEFAULT_COMMENTS, parseCount } from "./ProductSwipeFeed";
 
 /* ─────────────── SVG Icons ─────────────── */
-const HeartIcon = ({ filled }) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? "#ef4444" : "none"} stroke={filled ? "#ef4444" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-  </svg>
-);
 const CartIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
@@ -20,13 +15,14 @@ const StarIcon = () => (
 );
 
 /* ─────────────── Tinder Card ─────────────── */
-const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight, onSwipeLeft, onShowDetails, liked, onToggleLike, displayLikes }, ref) => {
+const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight, onSwipeLeft, onShowDetails, liked, onToggleLike }, ref) => {
   const dragState = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
   const [dragX, setDragX] = useState(0);
   const [dragY, setDragY] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [flyOut, setFlyOut] = useState(null);
   const [heartPop, setHeartPop] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useImperativeHandle(ref, () => ({
     swipeLeft: () => {
@@ -60,6 +56,7 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
 
   const handleStart = useCallback((clientX, clientY) => {
     dragState.current = { active: true, startX: clientX, startY: clientY, currentX: clientX, currentY: clientY };
+    setIsDragging(true);
   }, []);
 
   const handleMove = useCallback((clientX, clientY) => {
@@ -84,6 +81,7 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
   const handleEnd = useCallback(() => {
     if (!dragState.current.active) return;
     dragState.current.active = false;
+    setIsDragging(false);
     const dx = dragState.current.currentX - dragState.current.startX;
     const dy = dragState.current.currentY - dragState.current.startY;
     setFeedback(null);
@@ -137,11 +135,11 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
   else if (dragX !== 0 || dragY !== 0) {
     if (Math.abs(dragY) > Math.abs(dragX)) {
       cardTransform = `translateY(${Math.min(dragY, 0)}px)`;
-      cardTransition = dragState.current.active ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
+      cardTransition = isDragging ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
     } else {
       const rotate = dragX * 0.07;
       cardTransform = `translateX(${dragX}px) rotate(${rotate}deg)`;
-      cardTransition = dragState.current.active ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
+      cardTransition = isDragging ? "none" : "transform 0.38s cubic-bezier(.25,.8,.25,1)";
     }
   }
 
@@ -157,7 +155,9 @@ const TinderCard = forwardRef(({ product, totalCount, currentIndex, onSwipeRight
       const oldVal = parseFloat(product.oldPrice.replace(/[^\d.]/g, ''));
       const newVal = parseFloat(product.price.replace(/[^\d.]/g, ''));
       if (oldVal && newVal && oldVal > newVal) return Math.round(((oldVal - newVal) / oldVal) * 100);
-    } catch (e) { }
+    } catch {
+      return 0;
+    }
     return 0;
   };
   const discount = getDiscount();
@@ -318,15 +318,19 @@ function CartSheet({ cart, open, onClose, onRemove, onUpdateQty }) {
 
 /* ─────────────── Details Sheet ─────────────── */
 function DetailsSheet({ product, open, onClose, onBuy }) {
-  if (!product) return null;
   const [detailsExpanded, setDetailsExpanded] = useState(true);
   const [aboutExpanded, setAboutExpanded] = useState(false);
+
+  if (!product) return null;
+
   const getDiscount = () => {
     try {
       const oldVal = parseFloat(product.oldPrice.replace(/[^\d.]/g, ''));
       const newVal = parseFloat(product.price.replace(/[^\d.]/g, ''));
       if (oldVal && newVal && oldVal > newVal) return Math.round(((oldVal - newVal) / oldVal) * 100);
-    } catch (e) { }
+    } catch {
+      return 23;
+    }
     return 23;
   };
   const discount = getDiscount();
@@ -388,8 +392,10 @@ function DetailsSheet({ product, open, onClose, onBuy }) {
 
 /* ─────────────── Comment Sheet ─────────────── */
 function CommentSheet({ open, onClose, product, comments = [], onAddComment, onToggleLikeComment }) {
-  if (!product) return null;
   const [newComment, setNewComment] = useState("");
+
+  if (!product) return null;
+
   const handleSubmit = (e) => { if (e) e.preventDefault(); if (!newComment.trim()) return; onAddComment(product.id, newComment.trim()); setNewComment(""); };
   const handleQuickEmoji = (emoji) => { onAddComment(product.id, emoji); };
   return (
@@ -524,7 +530,6 @@ export default function TinderSwipeFeed() {
     setProductsList((prev) => prev.map((p) => { if (p.id === id) return { ...p, likesNum: p.likesNum + (wasLiked ? 1 : -1) }; return p; }));
   }, []);
 
-  const handleCommentClick = useCallback((product) => { setCommentOpenProduct(product); }, []);
   const addComment = useCallback((productId, commentText) => {
     setCommentsMap((prev) => {
       const cur = prev[productId] || [];
