@@ -128,7 +128,9 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [slideDir, setSlideDir] = useState(null); // 'left' | 'right' | null
+  const [slideDir, setSlideDir] = useState(null); // 'left' | 'right' | null — exit phase
+  const [enterDir, setEnterDir] = useState(null); // 'left' | 'right' | null — enter phase
+  const [isFirstOpen, setIsFirstOpen] = useState(true); // track initial open for slideUp
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const dragStartX = useRef(null);
@@ -139,16 +141,27 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
   const goTo = useCallback((dir) => {
     const next = currentIndex + dir;
     if (next < 0 || next >= allProducts.length) return;
+    setIsFirstOpen(false);
+    // Phase 1: exit — slide current product out
     setSlideDir(dir > 0 ? "left" : "right");
     setTimeout(() => {
+      // Phase 2: enter — position new product off-screen on opposite side, then animate in
+      const enterFrom = dir > 0 ? "right" : "left";
+      setEnterDir(enterFrom);
       setCurrentIndex(next);
       setSlideDir(null);
       setTranslateX(0);
       setAddedToCart(false);
+      // Use rAF to ensure the off-screen position is painted before transitioning in
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setEnterDir(null);
+        });
+      });
     }, 220);
   }, [currentIndex, allProducts.length]);
 
-  // Touch / mouse handlers on the image area
+  // Touch / mouse handlers on the whole popup
   const onTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -186,15 +199,32 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
 
   const tagList = p.tags || (p.tag ? [p.tag] : []);
 
-  const slideStyle = slideDir
-    ? {
-        transform: `translateX(${slideDir === "left" ? "-100%" : "100%"})`,
-        opacity: 0,
-        transition: "transform 0.22s ease, opacity 0.22s ease",
-      }
-    : isDragging
-    ? { transform: `translateX(${translateX}px)` }
-    : { transform: "translateX(0)", transition: "transform 0.18s ease" };
+  // Compute the transform style for the modal sheet
+  let slideStyle;
+  if (slideDir) {
+    // Phase 1: exit animation — slide out in swipe direction
+    slideStyle = {
+      transform: `translateX(${slideDir === "left" ? "-100%" : "100%"})`,
+      opacity: 0,
+      transition: "transform 0.22s ease, opacity 0.22s ease",
+    };
+  } else if (enterDir) {
+    // Phase 2a: position new product off-screen (no transition, instant jump)
+    slideStyle = {
+      transform: `translateX(${enterDir === "right" ? "100%" : "-100%"})`,
+      opacity: 0,
+      transition: "none",
+    };
+  } else if (isDragging) {
+    slideStyle = { transform: `translateX(${translateX}px)` };
+  } else {
+    // Resting or entering — animate to center
+    slideStyle = {
+      transform: "translateX(0)",
+      opacity: 1,
+      transition: "transform 0.25s ease, opacity 0.25s ease",
+    };
+  }
 
   return (
     <div
@@ -217,7 +247,7 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
           maxHeight: "92vh",
           overflowY: isDragging ? "hidden" : "auto",
           overflowX: "hidden",
-          animation: !slideDir && !isDragging ? "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)" : undefined,
+          animation: isFirstOpen ? "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)" : undefined,
           ...slideStyle,
         }}
       >
