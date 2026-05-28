@@ -207,14 +207,18 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
       }}
     >
       <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
         style={{
           width: "100%", maxWidth: 430, margin: "0 auto",
           background: "#fff",
           borderRadius: "20px 20px 0 0",
           maxHeight: "92vh",
-          overflowY: "auto",
+          overflowY: isDragging ? "hidden" : "auto",
           overflowX: "hidden",
-          animation: "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)",
+          animation: !slideDir && !isDragging ? "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)" : undefined,
+          ...slideStyle,
         }}
       >
         <style>{`
@@ -251,14 +255,11 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
           </div>
         </div>
 
-        {/* Product image + swipe area */}
+        {/* Product image area */}
         <div
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
           style={{ overflow: "hidden", position: "relative" }}
         >
-          <div style={{ ...slideStyle, padding: "10px 0 0" }}>
+          <div style={{ padding: "10px 0 0" }}>
             <div style={{
               display: "flex", justifyContent: "center", alignItems: "center",
               height: 260, padding: "0 24px",
