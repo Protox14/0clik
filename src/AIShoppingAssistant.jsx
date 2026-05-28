@@ -314,9 +314,11 @@ function ChatBubble({ message, isUser, onAddToCart, onViewDetails }) {
         )}
 
         {!isUser && message.products && message.products.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 w-full max-w-xl">
+          <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 gap-2.5 w-[calc(100vw-32px)] sm:w-full max-w-xl overflow-x-auto snap-x hide-scrollbar pb-1">
             {message.products.map((p) => (
-              <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} onViewDetails={onViewDetails} />
+              <div key={p.id} className="min-w-[150px] w-[150px] sm:min-w-0 sm:w-auto snap-start shrink-0 flex flex-col">
+                <ProductCard product={p} onAddToCart={onAddToCart} onViewDetails={onViewDetails} />
+              </div>
             ))}
           </div>
         )}
@@ -362,12 +364,17 @@ function TypingIndicator() {
 function ProductDetailsModal({ product, onClose, onAddToCart }) {
   const disc = getDiscount(product);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" style={{ animation: "fadeIn 0.15s ease-out" }}
+    <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center bg-black/50 md:p-4" style={{ animation: "fadeIn 0.15s ease-out" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-3xl overflow-hidden max-w-2xl w-full flex flex-col md:flex-row shadow-2xl max-h-[90vh]"
+      <div className="bg-white rounded-t-3xl md:rounded-3xl overflow-hidden max-w-2xl w-full flex flex-col md:flex-row shadow-2xl max-h-[90vh]"
         style={{ animation: "slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+        {/* Mobile drag handle */}
+        <div className="w-full flex justify-center mb-19 pt-3 pb-1 md:hidden shrink-0 bg-white absolute z-20 rounded-t-3xl" onClick={onClose}>
+          <div className="w-10 h-1.5 bg-gray-300 rounded-full"></div>
+        </div>
+
         {/* Image */}
-        <div className="md:w-[45%] flex items-center justify-center p-8 relative min-h-[260px]"
+        <div className="md:w-[45%] mt-[30px] flex items-center justify-center mt-3 p-8 pt-10 md:pt-8 relative min-h-[220px] md:min-h-[260px] shrink-0"
           style={{ background: `linear-gradient(145deg, ${product.bgStart}, ${product.bgEnd})` }}>
           <img src={product.image} alt={product.name} className="max-w-[80%] max-h-[220px] object-contain drop-shadow-2xl" />
           {disc > 0 && (
@@ -628,6 +635,13 @@ export default function AIShoppingAssistant() {
         @keyframes typingDot {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
           30% { transform: translateY(-4px); opacity: 1; }
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>
