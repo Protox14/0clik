@@ -128,44 +128,23 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [slideDir, setSlideDir] = useState(null); // 'left' | 'right' | null — exit phase
-  const [enterDir, setEnterDir] = useState(null); // 'left' | 'right' | null — enter phase
-  const [isFirstOpen, setIsFirstOpen] = useState(true); // track initial open for slideUp
+  const [isFirstOpen, setIsFirstOpen] = useState(true);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
-  const dragStartX = useRef(null);
   const isHorizDrag = useRef(false);
-
-  const p = allProducts[currentIndex];
 
   const goTo = useCallback((dir) => {
     const next = currentIndex + dir;
     if (next < 0 || next >= allProducts.length) return;
     setIsFirstOpen(false);
-    // Phase 1: exit — slide current product out
-    setSlideDir(dir > 0 ? "left" : "right");
-    setTimeout(() => {
-      // Phase 2: enter — position new product off-screen on opposite side, then animate in
-      const enterFrom = dir > 0 ? "right" : "left";
-      setEnterDir(enterFrom);
-      setCurrentIndex(next);
-      setSlideDir(null);
-      setTranslateX(0);
-      setAddedToCart(false);
-      // Use rAF to ensure the off-screen position is painted before transitioning in
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setEnterDir(null);
-        });
-      });
-    }, 220);
+    setCurrentIndex(next);
+    setTranslateX(0);
+    setAddedToCart(false);
   }, [currentIndex, allProducts.length]);
 
-  // Touch / mouse handlers on the whole popup
   const onTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
-    dragStartX.current = e.touches[0].clientX;
     isHorizDrag.current = false;
   };
   const onTouchMove = (e) => {
@@ -175,56 +154,25 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
       isHorizDrag.current = true;
     }
     if (isHorizDrag.current) {
-      e.preventDefault();
       setIsDragging(true);
       setTranslateX(dx);
     }
   };
   const onTouchEnd = () => {
     const threshold = 60;
-    if (translateX < -threshold) {
-      goTo(1); // Swipe left -> next
-    } else if (translateX > threshold) {
-      goTo(-1); // Swipe right -> previous
+    if (translateX < -threshold && currentIndex < allProducts.length - 1) {
+      goTo(1);
+    } else if (translateX > threshold && currentIndex > 0) {
+      goTo(-1);
     } else {
       setTranslateX(0);
     }
     setIsDragging(false);
   };
 
-  // Close on backdrop click
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
-
-  const tagList = p.tags || (p.tag ? [p.tag] : []);
-
-  // Compute the transform style for the modal sheet
-  let slideStyle;
-  if (slideDir) {
-    // Phase 1: exit animation — slide out in swipe direction
-    slideStyle = {
-      transform: `translateX(${slideDir === "left" ? "-100%" : "100%"})`,
-      opacity: 0,
-      transition: "transform 0.22s ease, opacity 0.22s ease",
-    };
-  } else if (enterDir) {
-    // Phase 2a: position new product off-screen (no transition, instant jump)
-    slideStyle = {
-      transform: `translateX(${enterDir === "right" ? "100%" : "-100%"})`,
-      opacity: 0,
-      transition: "none",
-    };
-  } else if (isDragging) {
-    slideStyle = { transform: `translateX(${translateX}px)` };
-  } else {
-    // Resting or entering — animate to center
-    slideStyle = {
-      transform: "translateX(0)",
-      opacity: 1,
-      transition: "transform 0.25s ease, opacity 0.25s ease",
-    };
-  }
 
   return (
     <div
@@ -237,18 +185,14 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
       }}
     >
       <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
         style={{
           width: "100%", maxWidth: 430, margin: "0 auto",
           background: "#fff",
           borderRadius: "20px 20px 0 0",
           maxHeight: "92vh",
-          overflowY: isDragging ? "hidden" : "auto",
-          overflowX: "hidden",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
           animation: isFirstOpen ? "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)" : undefined,
-          ...slideStyle,
         }}
       >
         <style>{`
@@ -256,10 +200,10 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
           ::-webkit-scrollbar { display: none; }
         `}</style>
 
-        {/* Top bar */}
+        {/* Top bar (Fixed) */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "14px 18px 0", position: "sticky", top: 0, background: "#fff", zIndex: 2,
+          padding: "14px 18px 0", background: "#fff", zIndex: 2, flexShrink: 0,
         }}>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.2">
@@ -285,272 +229,298 @@ function ProductDetailModal({ product, allProducts, onClose, initialIndex }) {
           </div>
         </div>
 
-        {/* Product image area */}
+        {/* Swipe Track */}
         <div
-          style={{ overflow: "hidden", position: "relative" }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{
+            display: "flex",
+            flex: 1,
+            transform: `translateX(calc(-${currentIndex * 100}% + ${translateX}px))`,
+            transition: isDragging ? "none" : "transform 0.25s cubic-bezier(0.32,0.72,0,1)",
+          }}
         >
-          <div style={{ padding: "10px 0 0" }}>
-            <div style={{
-              display: "flex", justifyContent: "center", alignItems: "center",
-              height: 260, padding: "0 24px",
-            }}>
-              <img
-                src={p.image} alt={p.name}
-                style={{ maxHeight: 240, maxWidth: "100%", objectFit: "contain" }}
-              />
-            </div>
-            {/* Dot indicators */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 5, padding: "8px 0 12px" }}>
-              {allProducts.map((_, i) => (
-                <div key={i} style={{
-                  width: i === currentIndex ? 16 : 6,
-                  height: 6, borderRadius: 3,
-                  background: i === currentIndex ? "#555" : "#ddd",
-                  transition: "width 0.2s",
-                }} />
-              ))}
-            </div>
-          </div>
+          {allProducts.map((p, idx) => {
+            const tagList = p.tags || (p.tag ? [p.tag] : []);
+            return (
+              <div key={p.id} style={{
+                flex: "0 0 100%", width: "100%",
+                overflowY: isDragging ? "hidden" : "auto",
+                overflowX: "hidden",
+                position: "relative",
+                display: "flex", flexDirection: "column",
+              }}>
+                <div style={{ flex: "1 0 auto" }}>
+                  {/* Product image area */}
+                  <div style={{ overflow: "hidden", position: "relative" }}>
+                    <div style={{ padding: "10px 0 0" }}>
+                      <div style={{
+                        display: "flex", justifyContent: "center", alignItems: "center",
+                        height: 260, padding: "0 24px",
+                      }}>
+                        <img
+                          src={p.image} alt={p.name}
+                          style={{ maxHeight: 240, maxWidth: "100%", objectFit: "contain" }}
+                        />
+                      </div>
+                      {/* Dot indicators */}
+                      <div style={{ display: "flex", justifyContent: "center", gap: 5, padding: "8px 0 12px" }}>
+                        {allProducts.map((_, i) => (
+                          <div key={i} style={{
+                            width: i === currentIndex ? 16 : 6,
+                            height: 6, borderRadius: 3,
+                            background: i === currentIndex ? "#555" : "#ddd",
+                            transition: "width 0.2s",
+                          }} />
+                        ))}
+                      </div>
+                    </div>
 
-          {/* Swipe arrows (desktop hint) */}
-          {currentIndex > 0 && (
-            <button onClick={() => goTo(-1)} style={{
-              position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
-              background: "rgba(255,255,255,0.9)", border: "1px solid #eee",
-              borderRadius: "50%", width: 32, height: 32,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-          )}
-          {currentIndex < allProducts.length - 1 && (
-            <button onClick={() => goTo(1)} style={{
-              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-              background: "rgba(255,255,255,0.9)", border: "1px solid #eee",
-              borderRadius: "50%", width: 32, height: 32,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Specs row */}
-        <div style={{ display: "flex", gap: 8, padding: "0 14px 12px" }}>
-          <div style={{
-            flex: 1, background: "#f5f5f5", borderRadius: 10, padding: "8px 12px",
-          }}>
-            <div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Connector Type</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.connectorType}</div>
-          </div>
-          <div style={{
-            flex: 1, background: "#f5f5f5", borderRadius: 10, padding: "8px 12px",
-          }}>
-            <div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Brand Warranty</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.warranty}</div>
-          </div>
-          <button style={{
-            background: "#fff", border: "1.5px solid #0c831f", borderRadius: 10,
-            color: "#0c831f", fontSize: 12, fontWeight: 700,
-            padding: "8px 12px", cursor: "pointer", minWidth: 68, lineHeight: 1.3,
-            fontFamily: "inherit",
-          }}>
-            View<br />details
-          </button>
-        </div>
-
-        {/* Info row */}
-        <div style={{ padding: "0 16px 12px", borderBottom: "1px solid #f0f0f0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#666" strokeWidth="2" />
-                <polyline points="12 6 12 12 16 14" stroke="#666" strokeWidth="2" fill="none" />
-              </svg>
-              <span style={{ fontSize: 13, color: "#444" }}>{p.delivery}</span>
-            </div>
-            <div style={{ width: 1, height: 14, background: "#ddd" }} />
-            <StarRating rating={p.rating} size={14} />
-            <span style={{ fontSize: 13, color: "#666" }}>{p.reviews.toLocaleString()}</span>
-          </div>
-
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", margin: "0 0 8px", lineHeight: 1.3 }}>
-            {p.name}
-          </h2>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
-            <span style={{ fontSize: 13, color: "#555" }}>1 unit</span>
-            <div style={{ width: 1, height: 14, background: "#ddd" }} />
-            {p.left && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{
-                    width: 22, height: 12, borderRadius: 3,
-                    border: "1px solid #aaa", overflow: "hidden", display: "flex",
-                  }}>
-                    <div style={{ width: "30%", background: "#666", height: "100%" }} />
+                    {/* Swipe arrows (desktop hint) */}
+                    {idx > 0 && (
+                      <button onClick={() => goTo(-1)} style={{
+                        position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                        background: "rgba(255,255,255,0.9)", border: "1px solid #eee",
+                        borderRadius: "50%", width: 32, height: 32,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5">
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                      </button>
+                    )}
+                    {idx < allProducts.length - 1 && (
+                      <button onClick={() => goTo(1)} style={{
+                        position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                        background: "rgba(255,255,255,0.9)", border: "1px solid #eee",
+                        borderRadius: "50%", width: 32, height: 32,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
-                  <span style={{ fontSize: 13, color: "#555" }}>{p.left}</span>
+
+                  {/* Specs row */}
+                  <div style={{ display: "flex", gap: 8, padding: "0 14px 12px" }}>
+                    <div style={{
+                      flex: 1, background: "#f5f5f5", borderRadius: 10, padding: "8px 12px",
+                    }}>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Connector Type</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.connectorType}</div>
+                    </div>
+                    <div style={{
+                      flex: 1, background: "#f5f5f5", borderRadius: 10, padding: "8px 12px",
+                    }}>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Brand Warranty</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.warranty}</div>
+                    </div>
+                    <button style={{
+                      background: "#fff", border: "1.5px solid #0c831f", borderRadius: 10,
+                      color: "#0c831f", fontSize: 12, fontWeight: 700,
+                      padding: "8px 12px", cursor: "pointer", minWidth: 68, lineHeight: 1.3,
+                      fontFamily: "inherit",
+                    }}>
+                      View<br />details
+                    </button>
+                  </div>
+
+                  {/* Info row */}
+                  <div style={{ padding: "0 16px 12px", borderBottom: "1px solid #f0f0f0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="#666" strokeWidth="2" />
+                          <polyline points="12 6 12 12 16 14" stroke="#666" strokeWidth="2" fill="none" />
+                        </svg>
+                        <span style={{ fontSize: 13, color: "#444" }}>{p.delivery}</span>
+                      </div>
+                      <div style={{ width: 1, height: 14, background: "#ddd" }} />
+                      <StarRating rating={p.rating} size={14} />
+                      <span style={{ fontSize: 13, color: "#666" }}>{p.reviews.toLocaleString()}</span>
+                    </div>
+
+                    <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", margin: "0 0 8px", lineHeight: 1.3 }}>
+                      {p.name}
+                    </h2>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: "#555" }}>1 unit</span>
+                      <div style={{ width: 1, height: 14, background: "#ddd" }} />
+                      {p.left && (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <div style={{
+                              width: 22, height: 12, borderRadius: 3,
+                              border: "1px solid #aaa", overflow: "hidden", display: "flex",
+                            }}>
+                              <div style={{ width: "30%", background: "#666", height: "100%" }} />
+                            </div>
+                            <span style={{ fontSize: 13, color: "#555" }}>{p.left}</span>
+                          </div>
+                          <div style={{ width: 1, height: 14, background: "#ddd" }} />
+                        </>
+                      )}
+                      {p.soldBadge && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#1a73e8" }} />
+                          <span style={{ fontSize: 13, color: "#1a73e8", fontWeight: 600 }}>{p.soldBadge}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: "#1a1a1a" }}>₹{p.price}</span>
+                      <span style={{ fontSize: 14, color: "#888" }}>MRP</span>
+                      <span style={{ fontSize: 14, color: "#aaa", textDecoration: "line-through" }}>₹{p.mrp}</span>
+                      {p.discount && (
+                        <span style={{ fontSize: 12, color: "#0c831f", fontWeight: 700 }}>{p.discount}</span>
+                      )}
+                    </div>
+                    {tagList.length > 0 && (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+                        {tagList.map(t => (
+                          <span key={t} style={{
+                            border: "1px solid #c8a84b", color: "#7a5c00",
+                            fontSize: 11, padding: "2px 8px", borderRadius: 5,
+                            fontWeight: 600, background: "#fffbee",
+                          }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Brand row */}
+                  <div style={{ margin: "10px 14px", background: "#f9f9f9", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 10, border: "1px solid #e8e8e8",
+                      background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700, color: "#555",
+                    }}>
+                      {p.brand.slice(0, 4)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{p.brand}</div>
+                      <div style={{ fontSize: 12, color: "#888" }}>{p.brandSub}</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </div>
+
+                  {/* Policies row */}
+                  <div style={{ display: "flex", gap: 10, padding: "0 14px 14px" }}>
+                    <div style={{
+                      flex: 1, background: "#f9f9f9", borderRadius: 12, padding: "12px 14px",
+                      display: "flex", alignItems: "center", gap: 10,
+                    }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                        <line x1="12" y1="12" x2="12" y2="16" />
+                        <line x1="10" y1="14" x2="14" y2="14" />
+                      </svg>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>7 days only</div>
+                        <div style={{ fontSize: 12, color: "#888" }}>replacement</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </div>
+                    <div style={{
+                      flex: 1, background: "#f9f9f9", borderRadius: 12, padding: "12px 14px",
+                      display: "flex", alignItems: "center", gap: 10,
+                    }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <polyline points="9 12 11 14 15 10" stroke="#555" strokeWidth="1.5" fill="none" />
+                      </svg>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.warranty}</div>
+                        <div style={{ fontSize: 12, color: "#888" }}>Warranty</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Similar products heading */}
+                  <div style={{ padding: "0 16px 80px" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1a1a1a", margin: "0 0 12px" }}>
+                      Similar products
+                    </h3>
+                    <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" }}>
+                      {allProducts.filter((_, i) => i !== idx).slice(0, 4).map((sp) => (
+                        <div
+                          key={sp.id}
+                          onClick={() => { setCurrentIndex(allProducts.indexOf(sp)); setAddedToCart(false); }}
+                          style={{
+                            minWidth: 110, background: "#f9f9f9", borderRadius: 10,
+                            border: "1px solid #eee", padding: "8px", cursor: "pointer",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <img src={sp.image} alt={sp.name} style={{ width: "100%", height: 80, objectFit: "contain", borderRadius: 6 }} />
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a", marginTop: 5, lineHeight: 1.3 }}>
+                            ₹{sp.price}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#888", marginTop: 2, lineHeight: 1.3,
+                            overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                          }}>
+                            {sp.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ width: 1, height: 14, background: "#ddd" }} />
-              </>
-            )}
-            {p.soldBadge && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#1a73e8" }} />
-                <span style={{ fontSize: 13, color: "#1a73e8", fontWeight: 600 }}>{p.soldBadge}</span>
-              </div>
-            )}
-          </div>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#1a1a1a" }}>₹{p.price}</span>
-            <span style={{ fontSize: 14, color: "#888" }}>MRP</span>
-            <span style={{ fontSize: 14, color: "#aaa", textDecoration: "line-through" }}>₹{p.mrp}</span>
-            {p.discount && (
-              <span style={{ fontSize: 12, color: "#0c831f", fontWeight: 700 }}>{p.discount}</span>
-            )}
-          </div>
-          {tagList.length > 0 && (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-              {tagList.map(t => (
-                <span key={t} style={{
-                  border: "1px solid #c8a84b", color: "#7a5c00",
-                  fontSize: 11, padding: "2px 8px", borderRadius: 5,
-                  fontWeight: 600, background: "#fffbee",
-                }}>{t}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Brand row */}
-        <div style={{ margin: "10px 14px", background: "#f9f9f9", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 10, border: "1px solid #e8e8e8",
-            background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 10, fontWeight: 700, color: "#555",
-          }}>
-            {p.brand.slice(0, 4)}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{p.brand}</div>
-            <div style={{ fontSize: 12, color: "#888" }}>{p.brandSub}</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </div>
-
-        {/* Policies row */}
-        <div style={{ display: "flex", gap: 10, padding: "0 14px 14px" }}>
-          <div style={{
-            flex: 1, background: "#f9f9f9", borderRadius: 12, padding: "12px 14px",
-            display: "flex", alignItems: "center", gap: 10,
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5">
-              <rect x="2" y="7" width="20" height="14" rx="2" />
-              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-              <line x1="12" y1="12" x2="12" y2="16" />
-              <line x1="10" y1="14" x2="14" y2="14" />
-            </svg>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>7 days only</div>
-              <div style={{ fontSize: 12, color: "#888" }}>replacement</div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-          <div style={{
-            flex: 1, background: "#f9f9f9", borderRadius: 12, padding: "12px 14px",
-            display: "flex", alignItems: "center", gap: 10,
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <polyline points="9 12 11 14 15 10" stroke="#555" strokeWidth="1.5" fill="none" />
-            </svg>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{p.warranty}</div>
-              <div style={{ fontSize: 12, color: "#888" }}>Warranty</div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Similar products heading */}
-        <div style={{ padding: "0 16px 80px" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1a1a1a", margin: "0 0 12px" }}>
-            Similar products
-          </h3>
-          <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" }}>
-            {allProducts.filter((_, i) => i !== currentIndex).slice(0, 4).map((sp) => (
-              <div
-                key={sp.id}
-                onClick={() => { setCurrentIndex(allProducts.indexOf(sp)); setAddedToCart(false); }}
-                style={{
-                  minWidth: 110, background: "#f9f9f9", borderRadius: 10,
-                  border: "1px solid #eee", padding: "8px", cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <img src={sp.image} alt={sp.name} style={{ width: "100%", height: 80, objectFit: "contain", borderRadius: 6 }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a", marginTop: 5, lineHeight: 1.3 }}>
-                  ₹{sp.price}
-                </div>
-                <div style={{ fontSize: 10, color: "#888", marginTop: 2, lineHeight: 1.3,
-                  overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
+                {/* Bottom bar */}
+                <div style={{
+                  position: "sticky", bottom: 0, background: "#fff",
+                  borderTop: "1px solid #f0f0f0", padding: "10px 16px 12px",
+                  display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0,
                 }}>
-                  {sp.name}
+                  <div>
+                    <div style={{ fontSize: 12, color: "#888" }}>1 unit</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: "#1a1a1a" }}>₹{p.price}</span>
+                      <span style={{ fontSize: 12, color: "#aaa", textDecoration: "line-through" }}>MRP ₹{p.mrp}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#888" }}>Inclusive of all taxes</div>
+                  </div>
+                  <button
+                    onClick={() => { setAddedToCart(true); setTimeout(() => setAddedToCart(false), 2000); }}
+                    style={{
+                      background: addedToCart ? "#0a6e18" : "#0c831f",
+                      border: "none", borderRadius: 12,
+                      color: "#fff", fontSize: 15, fontWeight: 700,
+                      padding: "13px 28px", cursor: "pointer",
+                      fontFamily: "inherit", transition: "background 0.2s",
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    {addedToCart ? (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Added!
+                      </>
+                    ) : "Add to cart"}
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div style={{
-          position: "sticky", bottom: 0, background: "#fff",
-          borderTop: "1px solid #f0f0f0", padding: "10px 16px 12px",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-        }}>
-          <div>
-            <div style={{ fontSize: 12, color: "#888" }}>1 unit</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "#1a1a1a" }}>₹{p.price}</span>
-              <span style={{ fontSize: 12, color: "#aaa", textDecoration: "line-through" }}>MRP ₹{p.mrp}</span>
-            </div>
-            <div style={{ fontSize: 11, color: "#888" }}>Inclusive of all taxes</div>
-          </div>
-          <button
-            onClick={() => { setAddedToCart(true); setTimeout(() => setAddedToCart(false), 2000); }}
-            style={{
-              background: addedToCart ? "#0a6e18" : "#0c831f",
-              border: "none", borderRadius: 12,
-              color: "#fff", fontSize: 15, fontWeight: 700,
-              padding: "13px 28px", cursor: "pointer",
-              fontFamily: "inherit", transition: "background 0.2s",
-              display: "flex", alignItems: "center", gap: 8,
-            }}
-          >
-            {addedToCart ? (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Added!
-              </>
-            ) : "Add to cart"}
-          </button>
+            );
+          })}
         </div>
       </div>
     </div>
